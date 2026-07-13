@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { NotesContentRenderer } from "@/components/shared/notes-content-renderer";
 import { useCourses } from "@/hooks/use-courses";
@@ -81,20 +82,19 @@ export function GlossaryVisualEditor() {
     if (chapterId) loadEntries();
   }, [chapterId, loadEntries]);
 
-  const handleSelection = () => {
-    const text = window.getSelection()?.toString().trim() ?? "";
-    if (!text || text.length > 120) return;
-    if (!notesRef.current?.contains(window.getSelection()?.anchorNode ?? null)) return;
-
-    setSelectedText(text);
-    setEditingId(null);
-    setDefinition("");
-    setImagePath("");
-    setImagePreview("");
-    setImageFile(null);
+  const loadTermDetails = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setEditingId(null);
+      setDefinition("");
+      setImagePath("");
+      setImagePreview("");
+      setImageFile(null);
+      return;
+    }
 
     const existing = entries.find(
-      (e) => e.chapter_id === chapterId && e.term.toLowerCase() === text.toLowerCase()
+      (e) => e.chapter_id === chapterId && e.term.toLowerCase() === trimmed.toLowerCase()
     );
     if (existing) {
       setEditingId(existing.id);
@@ -102,7 +102,23 @@ export function GlossaryVisualEditor() {
       setImagePath(existing.image_url || "");
       setImagePreview(existing.image_preview_url || "");
       setImageFile(null);
+    } else {
+      setEditingId(null);
+      setDefinition("");
+      setImagePath("");
+      setImagePreview("");
+      setImageFile(null);
     }
+  };
+
+  const handleSelection = () => {
+    const selection = window.getSelection();
+    const text = selection?.toString().trim() ?? "";
+    if (!text || text.length > 120) return;
+    if (!notesRef.current?.contains(selection?.anchorNode ?? null)) return;
+
+    setSelectedText(text);
+    loadTermDetails(text);
   };
 
   const handleImagePick = (file: File | null) => {
@@ -186,7 +202,7 @@ export function GlossaryVisualEditor() {
             </Select>
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <MousePointerClick className="h-4 w-4" />
-              Highlight any word or phrase in the notes below, then add tooltip text and an optional image.
+              Select a word in the notes below (long-press on phone), or type it manually in step 3.
             </p>
           </CardContent>
         </Card>
@@ -197,11 +213,17 @@ export function GlossaryVisualEditor() {
           </CardHeader>
           <CardContent
             ref={notesRef}
-            className="prose prose-sm dark:prose-invert max-w-none cursor-text rounded-md border bg-background p-4"
+            className="prose prose-sm dark:prose-invert max-w-none cursor-text select-text rounded-md border bg-background p-4"
+            onPointerUp={handleSelection}
             onMouseUp={handleSelection}
           >
             {selectedChapter ? (
-              <NotesContentRenderer content={selectedChapter.content} glossary={previewGlossary} />
+              <NotesContentRenderer
+                content={selectedChapter.content}
+                glossary={previewGlossary}
+                protect={false}
+                interactiveGlossary={false}
+              />
             ) : (
               <p className="text-muted-foreground">Create chapter notes first under Tutor → Chapters.</p>
             )}
@@ -215,18 +237,24 @@ export function GlossaryVisualEditor() {
             <CardTitle className="text-base">3. Tooltip for selection</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="manual-term">Word or phrase</Label>
+              <Input
+                id="manual-term"
+                value={selectedText}
+                onChange={(e) => setSelectedText(e.target.value)}
+                onBlur={(e) => loadTermDetails(e.target.value)}
+                placeholder="Type or select a word from notes"
+              />
+            </div>
             {selectedText ? (
               <>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Selected text</Label>
-                  <p className="mt-1 rounded-md border bg-muted/50 px-3 py-2 font-medium">{selectedText}</p>
-                </div>
                 <div className="space-y-2">
-                  <Label>Hover explanation</Label>
+                  <Label>Tooltip explanation</Label>
                   <Textarea
                     value={definition}
                     onChange={(e) => setDefinition(e.target.value)}
-                    placeholder="What should students see when they hover?"
+                    placeholder="What should students see when they tap the word?"
                     rows={4}
                   />
                 </div>
@@ -259,7 +287,7 @@ export function GlossaryVisualEditor() {
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Select text in the notes panel to create or edit a hover tooltip.
+                Select text in the notes panel or type a word above to create a tooltip.
               </p>
             )}
           </CardContent>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Save, Loader2, Check } from "lucide-react";
+import { FullscreenPanel } from "@/components/shared/fullscreen-panel";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useNotesStore } from "@/stores";
@@ -75,7 +76,7 @@ export function NotesEditor({ chapterId, className }: NotesEditorProps) {
   }, [content, chapterId, existingNote?.content, persistNote, setSaving]);
 
   return (
-    <div className={cn("flex h-full flex-col", className)}>
+    <FullscreenPanel title="Personal Notes" className={cn("flex h-full flex-col", className)}>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-semibold">Personal Notes</h3>
         <div className="flex items-center gap-2">
@@ -108,6 +109,6 @@ export function NotesEditor({ chapterId, className }: NotesEditorProps) {
       {existingNote?.lastSaved && saveStatus === "idle" && (
         <p className="mt-2 text-xs text-muted-foreground">Last saved at {existingNote.lastSaved}</p>
       )}
-    </div>
+    </FullscreenPanel>
   );
 }

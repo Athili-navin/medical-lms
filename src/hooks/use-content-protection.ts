@@ -41,17 +41,29 @@ export function useContentProtection(
       event.preventDefault();
     };
 
+    const onSelectStart = (event: Event) => {
+      event.preventDefault();
+    };
+
+    const onContextMenu = (event: Event) => {
+      event.preventDefault();
+    };
+
     document.addEventListener("keydown", onKeyDown, true);
     const copyTarget = container ?? document;
     copyTarget.addEventListener("copy", onCopy as EventListener, true);
     copyTarget.addEventListener("cut", onCut as EventListener, true);
     copyTarget.addEventListener("dragstart", onDragStart as EventListener, true);
+    copyTarget.addEventListener("selectstart", onSelectStart, true);
+    copyTarget.addEventListener("contextmenu", onContextMenu, true);
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
       copyTarget.removeEventListener("copy", onCopy as EventListener, true);
       copyTarget.removeEventListener("cut", onCut as EventListener, true);
       copyTarget.removeEventListener("dragstart", onDragStart as EventListener, true);
+      copyTarget.removeEventListener("selectstart", onSelectStart, true);
+      copyTarget.removeEventListener("contextmenu", onContextMenu, true);
     };
   }, [active, containerRef]);
 }

@@ -190,6 +190,7 @@ export default function TutorChaptersPage() {
                 value={form.content}
                 onChange={(content) => setForm({ ...form, content })}
                 placeholder="Write chapter notes…"
+                chapterId={editing?.id}
               />
             </div>
           </div>

@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChapterCard } from "@/components/shared/chapter-card";
 import { NotesEditor } from "@/components/shared/notes-editor";
 import { NotesContentRenderer } from "@/components/shared/notes-content-renderer";
+import { FullscreenPanel } from "@/components/shared/fullscreen-panel";
 import { ChapterMcqPanel } from "@/components/shared/chapter-mcq-panel";
 import { CourseMissingState } from "@/components/shared/course-missing-state";
 import { useCourse } from "@/hooks/use-courses";
@@ -126,14 +127,6 @@ export default function ChapterPage({ params }: PageProps) {
                 )}
                 <Button
                   size="sm"
-                  variant={activeTab === "mcq" ? "default" : "outline"}
-                  onClick={() => setActiveTab("mcq")}
-                >
-                  <ListChecks className="mr-1 h-4 w-4" />
-                  MCQ Quiz
-                </Button>
-                <Button
-                  size="sm"
                   variant={completed ? "secondary" : "default"}
                   onClick={() => markComplete(chapterId)}
                   disabled={completed}
@@ -146,7 +139,9 @@ export default function ChapterPage({ params }: PageProps) {
             <Separator />
             <CardContent className="pt-6">
               <TabsContent value="notes" className="mt-0 prose prose-sm dark:prose-invert max-w-none">
-                <NotesContentRenderer content={chapter.content} glossary={glossary} />
+                <FullscreenPanel title="Chapter Notes">
+                  <NotesContentRenderer content={chapter.content} glossary={glossary} />
+                </FullscreenPanel>
               </TabsContent>
               <TabsContent value="mcq" className="mt-0">
                 <ChapterMcqPanel chapterId={chapterId} />

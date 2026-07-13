@@ -9,5 +9,5 @@ export function splitHtmlIntoPages(html: string): string[] {
 export function isHtmlNotesContent(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return false;
-  return trimmed.startsWith("<") && /<(p|h[1-6]|ul|ol|table|div|blockquote|strong|em)\b/i.test(trimmed);
+  return trimmed.startsWith("<") && /<(p|h[1-6]|ul|ol|table|div|blockquote|strong|em|img|a|mark)\b/i.test(trimmed);
 }
