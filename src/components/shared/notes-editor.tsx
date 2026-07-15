@@ -127,7 +127,7 @@ export function NotesEditor({ chapterId, className, embedded = false }: NotesEdi
         placeholder="Write your personal study notes here..."
         className={cn(
           "flex-1 resize-none font-mono text-sm leading-relaxed",
-          embedded ? "min-h-[calc(100vh-380px)]" : "min-h-[300px]"
+          embedded ? "min-h-[320px]" : "min-h-[300px]"
         )}
         aria-label="Personal notes editor"
       />
@@ -140,7 +140,7 @@ export function NotesEditor({ chapterId, className, embedded = false }: NotesEdi
 
   if (embedded) {
     return (
-      <FullscreenPanel title="Personal Notes" className={cn("flex h-full flex-col", className)}>
+      <FullscreenPanel title="Personal Notes" embedded className={cn("flex flex-col", className)}>
         {editorBody}
       </FullscreenPanel>
     );

@@ -1,6 +1,6 @@
 import path from "path";
 import { pathToFileURL } from "url";
-
+import "@/lib/pdf/node-polyfills";
 type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 type PdfDocument = Awaited<ReturnType<PdfJsModule["getDocument"]>["promise"]>;
 
@@ -35,12 +35,10 @@ async function getPdfJs() {
 
   pdfjsInit = (async () => {
     pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
     const workerPath = path.join(pdfAssetRoot, "legacy", "build", "pdf.worker.mjs");
     pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
     return pdfjsLib;
   })();
-
   return pdfjsInit;
 }
 

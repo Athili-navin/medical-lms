@@ -129,17 +129,18 @@ export default function ChapterPage({ params }: PageProps) {
               </div>
             </CardHeader>
             <Separator />
-            <CardContent className="pt-6">
-              <TabsContent value="notes" className="mt-0 flex min-h-[480px] flex-col">
+            <CardContent className="pt-4">
+              <TabsContent value="notes" className="mt-0">
                 <FullscreenPanel
                   title="Chapter Notes"
-                  contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
+                  embedded
+                  contentClassName="flex min-h-0 flex-col overflow-hidden p-0"
                 >
                   {chapter.pdfId ? (
                     <ProtectedPdfViewer
                       chapterId={chapterId}
                       title={chapter.title}
-                      className="min-h-[420px]"
+                      className="min-h-[360px]"
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">

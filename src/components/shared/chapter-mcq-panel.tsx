@@ -60,8 +60,8 @@ export function ChapterMcqPanel({ chapterId }: ChapterMcqPanelProps) {
   }
 
   return (
-    <FullscreenPanel title="Chapter MCQ Quiz" contentClassName="pb-6">
-      <ProtectedContent className="flex h-full flex-col">
+    <FullscreenPanel title="Chapter MCQ Quiz" embedded contentClassName="pb-2">
+      <ProtectedContent className="flex flex-col">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">
@@ -86,7 +86,7 @@ export function ChapterMcqPanel({ chapterId }: ChapterMcqPanelProps) {
           )}
         </div>
 
-        <ScrollArea className="h-[calc(100vh-380px)] min-h-[400px] pr-4">
+        <ScrollArea className="max-h-[min(70vh,720px)] pr-4">
           <div className="space-y-4">
             {questions.map((question, index) => {
               const selected = answers[question.id];

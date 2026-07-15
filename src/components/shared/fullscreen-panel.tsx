@@ -10,9 +10,17 @@ interface FullscreenPanelProps {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  /** Compact layout when nested inside chapter tabs (no extra min-height). */
+  embedded?: boolean;
 }
 
-export function FullscreenPanel({ title, children, className, contentClassName }: FullscreenPanelProps) {
+export function FullscreenPanel({
+  title,
+  children,
+  className,
+  contentClassName,
+  embedded = false,
+}: FullscreenPanelProps) {
   const [fullscreen, setFullscreen] = useState(false);
 
   if (fullscreen) {
@@ -31,8 +39,8 @@ export function FullscreenPanel({ title, children, className, contentClassName }
   }
 
   return (
-    <div className={cn("relative flex min-h-[420px] flex-col", className)}>
-      <div className="mb-2 flex justify-end">
+    <div className={cn("relative flex flex-col", !embedded && "min-h-[420px]", className)}>
+      <div className={cn("flex justify-end", embedded ? "mb-1" : "mb-2")}>
         <Button
           size="sm"
           variant="ghost"
