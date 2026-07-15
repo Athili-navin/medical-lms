@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { BookOpen, GraduationCap, Video, Megaphone, ArrowRight } from "lucide-react";
+import { BookOpen, Video, Megaphone, ArrowRight, FileText } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores";
@@ -10,7 +10,7 @@ import { mockAnnouncements } from "@/lib/mock-data";
 
 const quickLinks = [
   { label: "Manage Courses", href: "/tutor/courses", icon: BookOpen, description: "Create and edit courses" },
-  { label: "Chapter Notes", href: "/tutor/chapters", icon: GraduationCap, description: "Write rich study notes" },
+  { label: "PDF Notes", href: "/tutor/chapters", icon: FileText, description: "Upload PDF notes per chapter" },
   { label: "Upload Videos", href: "/tutor/videos", icon: Video, description: "Attach lectures to chapters" },
   { label: "Announcements", href: "/tutor/announcements", icon: Megaphone, description: "Post updates for students" },
 ];

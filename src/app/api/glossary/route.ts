@@ -1,30 +1,18 @@
 import { NextResponse } from "next/server";
 import { requireAuth, apiError } from "@/lib/api/auth-helpers";
 import { requireBackend } from "@/lib/api/route-utils";
-import { resolveStorageUrl } from "@/lib/api/resolve-storage-url";
-import { GLOSSARY_IMAGE_BUCKET } from "@/lib/supabase/storage-constants";
+import { storageImageProxyUrl } from "@/lib/storage/image-path";
 import type { GlossaryEntry } from "@/types";
 import { gateStudentSubscription } from "@/lib/api/require-subscription";
 
-async function mapGlossaryRows(
-  supabase: NonNullable<Awaited<ReturnType<typeof requireAuth>>["supabase"]>,
-  rows: GlossaryEntry[],
-  withSignedImages: boolean
-) {
+async function mapGlossaryRows(rows: GlossaryEntry[], withSignedImages: boolean) {
   if (!withSignedImages) return rows;
-  return Promise.all(
-    rows.map(async (row) => {
-      if (!row.image_url || row.image_url.startsWith("http")) {
-        return { ...row, image_preview_url: row.image_url || undefined };
-      }
-      try {
-        const signed = await resolveStorageUrl(supabase!, GLOSSARY_IMAGE_BUCKET, row.image_url);
-        return { ...row, image_preview_url: signed };
-      } catch {
-        return row;
-      }
-    })
-  );
+  return rows.map((row) => {
+    if (!row.image_url || row.image_url.startsWith("http")) {
+      return { ...row, image_preview_url: row.image_url || undefined };
+    }
+    return { ...row, image_preview_url: storageImageProxyUrl(row.image_url) };
+  });
 }
 
 export async function GET(request: Request) {
@@ -51,7 +39,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await query;
   if (error) return apiError(error.message);
-  const mapped = await mapGlossaryRows(auth.supabase!, (data ?? []) as GlossaryEntry[], signedImages);
+  const mapped = await mapGlossaryRows((data ?? []) as GlossaryEntry[], signedImages);
   return NextResponse.json(mapped);
 }
 
@@ -72,7 +60,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return apiError(error.message);
-  const [mapped] = await mapGlossaryRows(auth.supabase!, [data as GlossaryEntry], true);
+  const [mapped] = await mapGlossaryRows([data as GlossaryEntry], true);
   return NextResponse.json(mapped, { status: 201 });
 }
 
@@ -88,7 +76,7 @@ export async function PATCH(request: Request) {
 
   const { data, error } = await auth.supabase!.from("glossary_terms").update(updates).eq("id", id).select().single();
   if (error) return apiError(error.message);
-  const [mapped] = await mapGlossaryRows(auth.supabase!, [data as GlossaryEntry], true);
+  const [mapped] = await mapGlossaryRows([data as GlossaryEntry], true);
   return NextResponse.json(mapped);
 }
 

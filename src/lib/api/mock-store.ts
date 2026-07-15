@@ -1,4 +1,4 @@
-import type { Course, Chapter, Lesson, Video, MCQQuestion, ChapterPdf } from "@/types";
+import type { Course, Chapter, Lesson, Video, MCQQuestion, McqQuestionType, ChapterPdf } from "@/types";
 import { mockCourses, mockVideos, mockAnnouncements } from "@/lib/mock-data";
 import { getMcqByChapterId } from "@/lib/mock-data/mcq";
 import { NOTE_GLOSSARY } from "@/lib/glossary";
@@ -96,12 +96,38 @@ export function mapVideo(row: Record<string, unknown>): Video {
   };
 }
 
+function inferQuestionType(
+  row: Record<string, unknown>,
+  statements: string[]
+): McqQuestionType {
+  const explicit = row.question_type as McqQuestionType | undefined;
+  if (explicit === "normal" || explicit === "statement" || explicit === "image") return explicit;
+  const imagePath = (row.image_path as string) || "";
+  if (imagePath) return "image";
+  if (statements.length > 0) return "statement";
+  return "normal";
+}
+
 export function mapMcq(row: Record<string, unknown>): MCQQuestion {
+  const rawStatements = row.statements;
+  const statements = Array.isArray(rawStatements)
+    ? rawStatements.filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    : [];
+  const imagePath = (row.image_path as string) || undefined;
+  const rawOptionImages = row.option_images;
+  const optionImages = Array.isArray(rawOptionImages)
+    ? rawOptionImages.map((p) => (typeof p === "string" ? p : ""))
+    : [];
+
   return {
     id: row.id as string,
     chapterId: row.chapter_id as string,
+    questionType: inferQuestionType(row, statements),
     question: row.question as string,
+    statements,
+    imagePath: imagePath || undefined,
     options: row.options as string[],
+    optionImages,
     correctIndex: row.correct_index as number,
     explanation: (row.explanation as string) || "",
   };

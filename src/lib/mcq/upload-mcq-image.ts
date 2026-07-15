@@ -1,14 +1,14 @@
 import { createClient } from "@/lib/supabase/client";
 import { GLOSSARY_IMAGE_BUCKET } from "@/lib/supabase/storage-constants";
 
-export async function uploadNoteImage(chapterId: string, file: File): Promise<string> {
+export async function uploadMcqImage(chapterId: string, file: File): Promise<string> {
   const supabase = createClient();
   const {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session) throw new Error("Session expired. Log in again as tutor.");
 
-  const signRes = await fetch("/api/notes/upload-url", {
+  const signRes = await fetch("/api/mcq/upload-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

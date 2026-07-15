@@ -12,9 +12,10 @@ import { cn } from "@/lib/utils";
 interface NotesEditorProps {
   chapterId: string;
   className?: string;
+  embedded?: boolean;
 }
 
-export function NotesEditor({ chapterId, className }: NotesEditorProps) {
+export function NotesEditor({ chapterId, className, embedded = false }: NotesEditorProps) {
   const { getNote, saveNote, setSaving } = useNotesStore();
   const existingNote = getNote(chapterId);
   const [content, setContent] = useState(existingNote?.content ?? "");
@@ -75,11 +76,33 @@ export function NotesEditor({ chapterId, className }: NotesEditorProps) {
     return () => clearTimeout(timer);
   }, [content, chapterId, existingNote?.content, persistNote, setSaving]);
 
-  return (
-    <FullscreenPanel title="Personal Notes" className={cn("flex h-full flex-col", className)}>
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-semibold">Personal Notes</h3>
-        <div className="flex items-center gap-2">
+  const editorBody = (
+    <>
+      {!embedded && (
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-semibold">Personal Notes</h3>
+          <div className="flex items-center gap-2">
+            {saveStatus === "saving" && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Auto-saving...
+              </span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="flex items-center gap-1 text-xs text-primary">
+                <Check className="h-3 w-3" />
+                Saved
+              </span>
+            )}
+            <Button size="sm" variant="outline" onClick={handleSave}>
+              <Save className="mr-1 h-3 w-3" />
+              Save
+            </Button>
+          </div>
+        </div>
+      )}
+      {embedded && (
+        <div className="mb-3 flex items-center justify-end gap-2">
           {saveStatus === "saving" && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -97,18 +120,35 @@ export function NotesEditor({ chapterId, className }: NotesEditorProps) {
             Save
           </Button>
         </div>
-      </div>
+      )}
       <Textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="Write your personal study notes here..."
-        className="min-h-[300px] flex-1 resize-none font-mono text-sm leading-relaxed"
+        className={cn(
+          "flex-1 resize-none font-mono text-sm leading-relaxed",
+          embedded ? "min-h-[calc(100vh-380px)]" : "min-h-[300px]"
+        )}
         aria-label="Personal notes editor"
       />
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       {existingNote?.lastSaved && saveStatus === "idle" && (
         <p className="mt-2 text-xs text-muted-foreground">Last saved at {existingNote.lastSaved}</p>
       )}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <FullscreenPanel title="Personal Notes" className={cn("flex h-full flex-col", className)}>
+        {editorBody}
+      </FullscreenPanel>
+    );
+  }
+
+  return (
+    <FullscreenPanel title="Personal Notes" className={cn("flex h-full flex-col", className)}>
+      {editorBody}
     </FullscreenPanel>
   );
 }

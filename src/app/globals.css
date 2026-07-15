@@ -213,6 +213,23 @@
   padding: 0 0.125rem;
 }
 
+.word-image-placeholder {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px dashed hsl(var(--border));
+  border-radius: 0.375rem;
+  background: hsl(var(--muted) / 0.35);
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}
+
+.rich-notes-editor .rich-notes-prose img[src^="notes/"],
+.rich-notes-editor .rich-notes-prose img[src^="chapters/"] {
+  opacity: 0.35;
+  min-height: 120px;
+  background: hsl(var(--muted));
+}
+
 .protected-content {
   user-select: none;
   -webkit-user-select: none;
@@ -225,6 +242,12 @@
   -webkit-touch-callout: none;
 }
 
-.protected-content a {
+.protected-content a,
+.protected-content .glossary-term,
+.protected-content [data-glossary-term] {
   pointer-events: auto;
+}
+
+.protected-content .glossary-term {
+  cursor: help;
 }

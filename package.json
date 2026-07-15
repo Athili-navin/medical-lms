@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev --turbo",
+    "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
+    "dev:clean:turbo": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev --turbo",
     "dev:stable": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build && next start",
     "build": "next build",
     "start": "next start",

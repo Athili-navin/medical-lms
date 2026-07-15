@@ -143,7 +143,11 @@ export function NotesContentRenderer({
   const terms = glossary ?? {};
 
   const body = isHtmlNotesContent(content) ? (
-    <RichNotesViewer content={content} />
+    <RichNotesViewer
+      content={content}
+      glossary={terms}
+      interactiveGlossary={interactiveGlossary}
+    />
   ) : (
     <>
       {content.split("\n").map((line, i) => renderMarkdownLine(line, i, terms, interactiveGlossary))}

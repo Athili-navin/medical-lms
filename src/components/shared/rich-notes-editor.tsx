@@ -1,6 +1,6 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
@@ -8,7 +8,6 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import { Highlight } from "@tiptap/extension-highlight";
 import FontFamily from "@tiptap/extension-font-family";
-import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
@@ -36,8 +35,9 @@ import {
   Undo,
   FilePlus2,
   Loader2,
+  ClipboardPaste,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -54,7 +54,30 @@ import {
 import { PageBreak } from "@/lib/notes/page-break-extension";
 import { FontSize } from "@/lib/notes/font-size-extension";
 import { uploadNoteImage } from "@/lib/notes/upload-note-image";
+import { cleanWordHtml, isWordHtml, stripInvalidNoteImages } from "@/lib/notes/clean-word-html";
+import {
+  pasteNeedsImageUpload,
+  processClipboardItems,
+  processPastedContent,
+} from "@/lib/notes/paste-note-images";
+import { NoteImageExtension } from "@/lib/notes/note-image-extension";
+import { extractStoragePath } from "@/lib/notes/note-image-utils";
+import { useEditorImagePreview } from "@/hooks/use-editor-image-preview";
 import { cn } from "@/lib/utils";
+
+function normalizeNoteImageHtml(html: string): string {
+  if (typeof window === "undefined" || !html.includes("<img")) return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("img").forEach((img) => {
+    const storagePath =
+      img.getAttribute("data-storage-path") || extractStoragePath(img.getAttribute("src") ?? "");
+    if (storagePath) {
+      img.setAttribute("src", storagePath);
+      img.setAttribute("data-storage-path", storagePath);
+    }
+  });
+  return stripInvalidNoteImages(doc.body.innerHTML);
+}
 
 const FONT_OPTIONS = [
   { label: "Default", value: "default" },
@@ -131,6 +154,9 @@ export function RichNotesEditor({
   chapterId,
 }: RichNotesEditorProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<Editor | null>(null);
+  const chapterIdRef = useRef(chapterId);
+  chapterIdRef.current = chapterId;
   const [uploadingImage, setUploadingImage] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("https://");
@@ -138,6 +164,32 @@ export function RichNotesEditor({
   const [savedSelection, setSavedSelection] = useState<{ from: number; to: number } | null>(null);
   const [hasTextSelection, setHasTextSelection] = useState(false);
   const [isEditingLink, setIsEditingLink] = useState(false);
+
+  const insertPastedHtml = useCallback((ed: Editor, html: string) => {
+    if (!html) return;
+    ed.chain().focus().insertContent(html).run();
+  }, []);
+
+  const runPasteUpload = useCallback(
+    async (ed: Editor, data: DataTransfer) => {
+      const id = chapterIdRef.current;
+      if (!id) {
+        alert("Save the chapter first before pasting images.");
+        return;
+      }
+
+      setUploadingImage(true);
+      try {
+        const { html } = await processPastedContent(id, data);
+        insertPastedHtml(ed, html);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Paste failed");
+      } finally {
+        setUploadingImage(false);
+      }
+    },
+    [insertPastedHtml]
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -153,7 +205,7 @@ export function RichNotesEditor({
       FontSize,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: false, autolink: true }),
-      Image.configure({ inline: false, allowBase64: false }),
+      NoteImageExtension.configure({ inline: false, allowBase64: false }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -164,15 +216,37 @@ export function RichNotesEditor({
       }),
     ],
     content: value || "<p></p>",
+    onCreate: ({ editor: ed }) => {
+      editorRef.current = ed;
+    },
     editorProps: {
       attributes: {
         class: "rich-notes-prose focus:outline-none min-h-full",
       },
+      transformPastedHTML(html) {
+        const cleaned = isWordHtml(html) ? cleanWordHtml(html) : html;
+        return stripInvalidNoteImages(cleaned);
+      },
+      handlePaste: (_view, event) => {
+        const data = event.clipboardData;
+        if (!data || !chapterIdRef.current || !pasteNeedsImageUpload(data)) return false;
+
+        event.preventDefault();
+        const ed = editorRef.current;
+        if (ed) void runPasteUpload(ed, data);
+        return true;
+      },
     },
     onUpdate: ({ editor: ed }) => {
-      onChange(ed.getHTML());
+      onChange(normalizeNoteImageHtml(ed.getHTML()));
     },
   });
+
+  useEditorImagePreview(editor);
+
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -187,7 +261,12 @@ export function RichNotesEditor({
     setUploadingImage(true);
     try {
       const path = await uploadNoteImage(chapterId, file);
-      editor.chain().focus().setImage({ src: path, alt: file.name }).run();
+      const safeAlt = file.name.replace(/"/g, "");
+      editor
+        .chain()
+        .focus()
+        .insertContent(`<img src="${path}" alt="${safeAlt}" data-storage-path="${path}" />`)
+        .run();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Image upload failed");
     } finally {
@@ -207,6 +286,30 @@ export function RichNotesEditor({
     setLinkText(selectedText);
     setLinkUrl(previous ?? "https://");
     setLinkOpen(true);
+  };
+
+  const handlePasteFromWord = async () => {
+    if (!editor) return;
+    const id = chapterIdRef.current;
+    if (!id) {
+      alert("Save the chapter first before pasting images.");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const items = await navigator.clipboard.read();
+      const html = await processClipboardItems(id, items);
+      if (html) {
+        insertPastedHtml(editor, html);
+        return;
+      }
+      alert("Clipboard is empty. Copy your Word notes first, then try again.");
+    } catch {
+      alert("Paste from Word failed. Select content in Word, press Ctrl+C, then click in the editor and press Ctrl+V.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const applyLink = () => {
@@ -415,6 +518,13 @@ export function RichNotesEditor({
         </ToolbarButton>
         <ToolbarButton title="Insert table" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
           <TableIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          title={chapterId ? "Paste from Word (text + images)" : "Save chapter first to paste images"}
+          disabled={!chapterId || uploadingImage}
+          onClick={() => void handlePasteFromWord()}
+        >
+          {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardPaste className="h-4 w-4" />}
         </ToolbarButton>
         <ToolbarButton title="Insert page break" onClick={() => editor.chain().focus().setPageBreak().run()}>
           <FilePlus2 className="h-4 w-4" />

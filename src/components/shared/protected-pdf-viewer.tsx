@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useContentProtection } from "@/hooks/use-content-protection";
+import { useContentProtection, useVisibilityProtection } from "@/hooks/use-content-protection";
+import { PdfWatermarkOverlay } from "@/components/shared/pdf-watermark-overlay";
+import { useAuthStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
 interface ProtectedPdfViewerProps {
@@ -14,7 +16,15 @@ interface ProtectedPdfViewerProps {
 
 const PAGE_FETCH_TIMEOUT_MS = 120_000;
 
-function ProtectedPageImage({ chapterId, page }: { chapterId: string; page: number }) {
+function ProtectedPageImage({
+  chapterId,
+  page,
+  viewerLabel,
+}: {
+  chapterId: string;
+  page: number;
+  viewerLabel?: string;
+}) {
   const [src, setSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,27 +95,33 @@ function ProtectedPageImage({ chapterId, page }: { chapterId: string; page: numb
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src ?? undefined}
-      alt={`Page ${page}`}
-      draggable={false}
-      className="mx-auto block h-auto w-full max-w-full select-none rounded-md bg-white shadow-sm"
-      onContextMenu={(e) => e.preventDefault()}
-      onDragStart={(e) => e.preventDefault()}
-    />
+    <div className="relative mx-auto max-w-full">
+      <PdfWatermarkOverlay viewerLabel={viewerLabel} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src ?? undefined}
+        alt={`Page ${page}`}
+        draggable={false}
+        className="mx-auto block h-auto w-full max-w-full select-none rounded-md bg-white shadow-sm"
+        onContextMenu={(e) => e.preventDefault()}
+        onDragStart={(e) => e.preventDefault()}
+      />
+    </div>
   );
 }
 
 export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const user = useAuthStore((s) => s.user);
+  const viewerLabel = user?.email ?? user?.name;
   const [pageCount, setPageCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useContentProtection(true, containerRef);
+  const { isBlocked, blockReason } = useVisibilityProtection(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -214,15 +230,35 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
 
           <div
             ref={scrollRef}
-            className="h-0 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y p-4"
+            className={cn(
+              "relative h-0 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y p-4",
+              isBlocked && "overflow-hidden"
+            )}
           >
-            <ProtectedPageImage key={`${chapterId}-${currentPage}`} chapterId={chapterId} page={currentPage} />
+            <div className={cn("transition-all duration-300", isBlocked && "blur-xl brightness-75")}>
+              <ProtectedPageImage
+                key={`${chapterId}-${currentPage}`}
+                chapterId={chapterId}
+                page={currentPage}
+                viewerLabel={viewerLabel}
+              />
+            </div>
+
+            {isBlocked && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/90 px-6 text-center">
+                <ShieldAlert className="mb-3 h-10 w-10 text-destructive" />
+                <p className="text-lg font-semibold">Content protected</p>
+                <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                  {blockReason ?? "Return to this tab to continue viewing notes."}
+                </p>
+              </div>
+            )}
           </div>
         </>
       )}
 
       <p className="shrink-0 border-t px-4 py-2 text-xs text-muted-foreground">
-        Secure view — pages are rendered as images. Copy and download are blocked in the app.
+        Secure view — copy and download blocked. Watermarked with ENAMEL ROADS.
       </p>
     </div>
   );

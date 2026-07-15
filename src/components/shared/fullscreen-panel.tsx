@@ -25,13 +25,13 @@ export function FullscreenPanel({ title, children, className, contentClassName }
             Exit Fullscreen
           </Button>
         </div>
-        <div className={cn("flex-1 overflow-y-auto p-4", contentClassName)}>{children}</div>
+        <div className={cn("flex min-h-0 flex-1 flex-col", contentClassName ?? "overflow-y-auto p-4")}>{children}</div>
       </div>
     );
   }
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative flex min-h-[420px] flex-col", className)}>
       <div className="mb-2 flex justify-end">
         <Button
           size="sm"

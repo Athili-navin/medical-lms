@@ -13,7 +13,7 @@ import {
   GraduationCap,
   X,
   ListChecks,
-  CircleHelp,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -40,10 +40,9 @@ const tutorNavItems: SidebarItem[] = [
   { label: "Dashboard", href: "/tutor", icon: LayoutDashboard },
   { label: "Courses", href: "/tutor/courses", icon: BookOpen },
   { label: "Lessons", href: "/tutor/lessons", icon: GraduationCap },
-  { label: "Chapters", href: "/tutor/chapters", icon: StickyNote },
+  { label: "PDF Notes", href: "/tutor/chapters", icon: FileText },
   { label: "Videos", href: "/tutor/videos", icon: BookOpen },
   { label: "MCQ Questions", href: "/tutor/mcq", icon: ListChecks },
-  { label: "Keyword Tooltips", href: "/tutor/glossary", icon: CircleHelp },
   { label: "Announcements", href: "/tutor/announcements", icon: CreditCard },
 ];
 

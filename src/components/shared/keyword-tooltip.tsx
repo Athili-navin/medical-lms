@@ -11,7 +11,7 @@ interface KeywordTooltipProps {
   imageUrl?: string;
 }
 
-/** Tap/click-friendly glossary term — works on mobile and desktop. */
+/** Glossary term — hover on desktop, tap on mobile. */
 export function KeywordTooltip({ term, definition, imageUrl }: KeywordTooltipProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
@@ -38,23 +38,39 @@ export function KeywordTooltip({ term, definition, imageUrl }: KeywordTooltipPro
   }, [open]);
 
   return (
-    <span ref={ref} className="relative inline">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
+    <span ref={ref} className="glossary-term relative inline">
+      <span
+        role="button"
+        tabIndex={0}
+        data-glossary-term="true"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setOpen((prev) => !prev);
+          }
+        }}
         className={cn(
-          "inline cursor-pointer border-b border-dotted border-primary/50 font-medium text-foreground underline-offset-2 transition-colors",
+          "inline cursor-help border-b border-dotted border-primary/50 font-medium text-foreground underline-offset-2 transition-colors",
           "hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
           open && "border-primary text-primary"
         )}
       >
         {term}
-      </button>
+      </span>
 
       {open && (
         <span
           role="tooltip"
-          className="absolute left-0 top-full z-[100] mt-2 block w-[min(440px,92vw)] rounded-md border bg-popover p-4 text-left text-sm leading-relaxed text-popover-foreground shadow-lg"
+          className="pointer-events-auto absolute left-0 top-full z-[100] mt-2 block w-[min(440px,92vw)] rounded-md border bg-popover p-4 text-left text-sm leading-relaxed text-popover-foreground shadow-lg"
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
         >
           <button
             type="button"

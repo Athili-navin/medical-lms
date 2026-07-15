@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Play, CheckCircle2, ChevronLeft, ChevronRight, ListChecks, BookOpen, Loader2 } from "lucide-react";
+import { Play, CheckCircle2, ChevronLeft, ChevronRight, ListChecks, BookOpen, Loader2, StickyNote, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,20 +11,12 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChapterCard } from "@/components/shared/chapter-card";
 import { NotesEditor } from "@/components/shared/notes-editor";
-import { NotesContentRenderer } from "@/components/shared/notes-content-renderer";
+import { ProtectedPdfViewer } from "@/components/shared/protected-pdf-viewer";
 import { FullscreenPanel } from "@/components/shared/fullscreen-panel";
 import { ChapterMcqPanel } from "@/components/shared/chapter-mcq-panel";
 import { CourseMissingState } from "@/components/shared/course-missing-state";
 import { useCourse } from "@/hooks/use-courses";
-import { apiClient } from "@/lib/api/client";
-import { glossaryToRichMap, mergeGlossaryMaps } from "@/lib/glossary-map";
-import { NOTE_GLOSSARY } from "@/lib/glossary";
-import type { GlossaryTooltip } from "@/types";
 import { useProgressStore, useVideoModalStore } from "@/stores";
-
-const staticGlossary: Record<string, GlossaryTooltip> = Object.fromEntries(
-  Object.entries(NOTE_GLOSSARY).map(([k, v]) => [k, { definition: v }])
-);
 
 interface PageProps {
   params: Promise<{ courseId: string; lessonId: string; chapterId: string }>;
@@ -33,7 +25,6 @@ interface PageProps {
 export default function ChapterPage({ params }: PageProps) {
   const { courseId, lessonId, chapterId } = use(params);
   const [activeTab, setActiveTab] = useState("notes");
-  const [glossary, setGlossary] = useState<Record<string, GlossaryTooltip>>({});
   const { course, loading } = useCourse(courseId);
   const { isCompleted, markComplete, loadProgress } = useProgressStore();
   const openVideo = useVideoModalStore((s) => s.openVideo);
@@ -49,13 +40,6 @@ export default function ChapterPage({ params }: PageProps) {
     loadProgress();
   }, [loadProgress]);
 
-  useEffect(() => {
-    apiClient
-      .getGlossary(chapterId, courseId, true)
-      .then((entries) => setGlossary(mergeGlossaryMaps(staticGlossary, glossaryToRichMap(entries))))
-      .catch(() => setGlossary(staticGlossary));
-  }, [chapterId, courseId]);
-
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -70,6 +54,12 @@ export default function ChapterPage({ params }: PageProps) {
   const chapterIndex = lesson.chapters.findIndex((c) => c.id === chapterId);
   const prevChapter = chapterIndex > 0 ? lesson.chapters[chapterIndex - 1] : null;
   const nextChapter = chapterIndex < lesson.chapters.length - 1 ? lesson.chapters[chapterIndex + 1] : null;
+
+  const tabTitles: Record<string, string> = {
+    notes: "Chapter Notes",
+    mcq: "Chapter MCQ Quiz",
+    personal: "Personal Notes",
+  };
 
   return (
     <div className="space-y-4">
@@ -100,13 +90,11 @@ export default function ChapterPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-7 order-1 lg:order-2">
+        <Card className="lg:col-span-10 order-1 lg:order-2">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <CardHeader className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-3">
-                <CardTitle className="text-base">
-                  {activeTab === "notes" ? "Chapter Notes" : "Chapter MCQ Quiz"}
-                </CardTitle>
+                <CardTitle className="text-base">{tabTitles[activeTab] ?? "Chapter"}</CardTitle>
                 <TabsList>
                   <TabsTrigger value="notes" className="gap-1.5">
                     <BookOpen className="h-3.5 w-3.5" />
@@ -115,6 +103,10 @@ export default function ChapterPage({ params }: PageProps) {
                   <TabsTrigger value="mcq" className="gap-1.5">
                     <ListChecks className="h-3.5 w-3.5" />
                     MCQ Quiz
+                  </TabsTrigger>
+                  <TabsTrigger value="personal" className="gap-1.5">
+                    <StickyNote className="h-3.5 w-3.5" />
+                    Personal Notes
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -138,13 +130,30 @@ export default function ChapterPage({ params }: PageProps) {
             </CardHeader>
             <Separator />
             <CardContent className="pt-6">
-              <TabsContent value="notes" className="mt-0 prose prose-sm dark:prose-invert max-w-none">
-                <FullscreenPanel title="Chapter Notes">
-                  <NotesContentRenderer content={chapter.content} glossary={glossary} />
+              <TabsContent value="notes" className="mt-0 flex min-h-[480px] flex-col">
+                <FullscreenPanel
+                  title="Chapter Notes"
+                  contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-0"
+                >
+                  {chapter.pdfId ? (
+                    <ProtectedPdfViewer
+                      chapterId={chapterId}
+                      title={chapter.title}
+                      className="min-h-[420px]"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+                      <FileText className="h-10 w-10 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No PDF notes uploaded for this chapter yet.</p>
+                    </div>
+                  )}
                 </FullscreenPanel>
               </TabsContent>
               <TabsContent value="mcq" className="mt-0">
                 <ChapterMcqPanel chapterId={chapterId} />
+              </TabsContent>
+              <TabsContent value="personal" className="mt-0">
+                <NotesEditor chapterId={chapterId} embedded />
               </TabsContent>
             </CardContent>
           </Tabs>
@@ -166,12 +175,6 @@ export default function ChapterPage({ params }: PageProps) {
               </Button>
             )}
           </div>
-        </Card>
-
-        <Card className="lg:col-span-3 order-3">
-          <CardContent className="pt-6">
-            <NotesEditor chapterId={chapterId} />
-          </CardContent>
         </Card>
       </div>
     </div>

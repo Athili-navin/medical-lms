@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RichNotesEditor } from "@/components/shared/rich-notes-editor";
+import { ChapterPdfUpload } from "@/components/shared/chapter-pdf-upload";
 import { useCourses } from "@/hooks/use-courses";
 import { apiClient } from "@/lib/api/client";
 import { formatDuration } from "@/lib/utils";
@@ -19,14 +19,12 @@ import type { Chapter } from "@/types";
 
 type ChapterRow = Chapter & { courseTitle: string; lessonTitle: string; lessonId: string };
 
-const EMPTY_NOTES = "<p>Start writing your chapter notes here…</p>";
-
 export default function TutorChaptersPage() {
   const { courses, loading, refresh } = useCourses();
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<ChapterRow | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [lessonId, setLessonId] = useState("");
-  const [form, setForm] = useState({ title: "", content: "", order_index: 1, duration: 15 });
+  const [form, setForm] = useState({ title: "", order_index: 1, duration: 15 });
   const [saving, setSaving] = useState(false);
 
   const allChapters: ChapterRow[] = courses.flatMap((course) =>
@@ -42,19 +40,20 @@ export default function TutorChaptersPage() {
 
   const lessons = courses.flatMap((c) => c.lessons.map((l) => ({ ...l, courseTitle: c.title })));
 
+  const editing = editingId ? allChapters.find((c) => c.id === editingId) ?? null : null;
+
   const openCreate = () => {
-    setEditing(null);
+    setEditingId(null);
     setLessonId(lessons[0]?.id ?? "");
-    setForm({ title: "", content: EMPTY_NOTES, order_index: 1, duration: 15 });
+    setForm({ title: "", order_index: 1, duration: 15 });
     setOpen(true);
   };
 
   const openEdit = (chapter: ChapterRow) => {
-    setEditing(chapter);
+    setEditingId(chapter.id);
     setLessonId(chapter.lessonId);
     setForm({
       title: chapter.title,
-      content: chapter.content || EMPTY_NOTES,
       order_index: chapter.order,
       duration: chapter.duration,
     });
@@ -68,12 +67,11 @@ export default function TutorChaptersPage() {
         await apiClient.updateChapter({
           id: editing.id,
           title: form.title,
-          content: form.content,
           order_index: form.order_index,
           duration: form.duration,
         });
       } else {
-        await apiClient.createChapter({ lesson_id: lessonId, ...form });
+        await apiClient.createChapter({ lesson_id: lessonId, ...form, content: "" });
       }
       setOpen(false);
       refresh();
@@ -94,9 +92,9 @@ export default function TutorChaptersPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl font-bold lg:text-3xl">Chapter Notes</h1>
+          <h1 className="text-2xl font-bold lg:text-3xl">Chapter PDF Notes</h1>
           <p className="text-muted-foreground">
-            Write rich notes with fonts, alignment, tables, and multiple pages.
+            Manage chapters and upload PDF notes. Students view in-app only — copy blocked, watermarked.
           </p>
         </motion.div>
         <Button onClick={openCreate}>
@@ -121,6 +119,14 @@ export default function TutorChaptersPage() {
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
+                    {chapter.pdfId ? (
+                      <Badge variant="secondary" className="gap-1">
+                        <FileText className="h-3 w-3" />
+                        PDF
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">No PDF</Badge>
+                    )}
                     <Badge variant="outline">{formatDuration(chapter.duration)}</Badge>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(chapter)}>
                       <Edit className="h-4 w-4" />
@@ -137,12 +143,12 @@ export default function TutorChaptersPage() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex max-h-[95vh] max-w-6xl flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="border-b px-6 py-4">
-            <DialogTitle>{editing ? "Edit Chapter Notes" : "Add Chapter"}</DialogTitle>
+        <DialogContent className="max-h-[95vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit Chapter" : "Add Chapter"}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 overflow-y-auto px-6 py-4">
+          <div className="space-y-4 py-2">
             {!editing && (
               <div className="space-y-2">
                 <Label>Lesson</Label>
@@ -184,24 +190,26 @@ export default function TutorChaptersPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Notes (use toolbar for formatting · page break icon for new pages)</Label>
-              <RichNotesEditor
-                value={form.content}
-                onChange={(content) => setForm({ ...form, content })}
-                placeholder="Write chapter notes…"
-                chapterId={editing?.id}
+            {editing ? (
+              <ChapterPdfUpload
+                chapterId={editing.id}
+                pdfId={editing.pdfId}
+                onChange={() => refresh()}
               />
-            </div>
+            ) : (
+              <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                Save the chapter first, then edit it to upload PDF notes.
+              </p>
+            )}
           </div>
 
-          <DialogFooter className="border-t px-6 py-4">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving || !form.title}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Notes
+              Save Chapter
             </Button>
           </DialogFooter>
         </DialogContent>

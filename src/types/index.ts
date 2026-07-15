@@ -104,11 +104,20 @@ export interface PersonalNote {
   lastSaved?: string;
 }
 
+export type McqQuestionType = "normal" | "statement" | "image";
+
 export interface MCQQuestion {
   id: string;
   chapterId: string;
+  questionType: McqQuestionType;
   question: string;
+  /** Numbered statements for statement-wise MCQs (e.g. 1, 2, 3). */
+  statements: string[];
+  /** Storage path for image MCQs (glossary-images bucket). */
+  imagePath?: string;
   options: string[];
+  /** Storage paths for option images (same index as options). */
+  optionImages: string[];
   correctIndex: number;
   explanation: string;
 }
