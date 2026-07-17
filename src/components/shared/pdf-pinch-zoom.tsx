@@ -13,6 +13,7 @@ interface PdfPinchZoomProps {
   children: ReactNode;
   resetKey?: string | number;
   className?: string;
+  disabled?: boolean;
 }
 
 function touchDistance(touches: Pick<TouchList, "length"> & { 0?: Touch; 1?: Touch }) {
@@ -24,7 +25,7 @@ function touchDistance(touches: Pick<TouchList, "length"> & { 0?: Touch; 1?: Tou
   return Math.hypot(dx, dy);
 }
 
-export function PdfPinchZoom({ children, resetKey, className }: PdfPinchZoomProps) {
+export function PdfPinchZoom({ children, resetKey, className, disabled = false }: PdfPinchZoomProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(MIN_SCALE);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -68,6 +69,7 @@ export function PdfPinchZoom({ children, resetKey, className }: PdfPinchZoomProp
   };
 
   const onTouchStart = (event: React.TouchEvent) => {
+    if (disabled) return;
     if (event.touches.length === 2) {
       pinchStartDistance.current = touchDistance(event.touches);
       pinchStartScale.current = scaleRef.current;
@@ -87,6 +89,7 @@ export function PdfPinchZoom({ children, resetKey, className }: PdfPinchZoomProp
   };
 
   const onTouchMove = (event: React.TouchEvent) => {
+    if (disabled) return;
     if (event.touches.length === 2 && pinchStartDistance.current) {
       event.preventDefault();
       const distance = touchDistance(event.touches);
@@ -123,13 +126,13 @@ export function PdfPinchZoom({ children, resetKey, className }: PdfPinchZoomProp
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", className)}>
       <div className="flex shrink-0 items-center justify-center gap-2 border-b bg-background/95 px-3 py-2">
-        <Button type="button" size="icon" variant="outline" className="h-8 w-8" onClick={zoomOut} aria-label="Zoom out">
+        <Button type="button" size="icon" variant="outline" className="h-8 w-8" onClick={zoomOut} disabled={disabled} aria-label="Zoom out">
           <Minus className="h-4 w-4" />
         </Button>
         <span className="min-w-[3.5rem] text-center text-xs text-muted-foreground">
           {Math.round(scale * 100)}%
         </span>
-        <Button type="button" size="icon" variant="outline" className="h-8 w-8" onClick={zoomIn} aria-label="Zoom in">
+        <Button type="button" size="icon" variant="outline" className="h-8 w-8" onClick={zoomIn} disabled={disabled} aria-label="Zoom in">
           <Plus className="h-4 w-4" />
         </Button>
         <Button
@@ -138,7 +141,7 @@ export function PdfPinchZoom({ children, resetKey, className }: PdfPinchZoomProp
           variant="ghost"
           className="h-8 w-8"
           onClick={resetZoom}
-          disabled={scale === MIN_SCALE && offset.x === 0 && offset.y === 0}
+          disabled={disabled || (scale === MIN_SCALE && offset.x === 0 && offset.y === 0)}
           aria-label="Reset zoom"
         >
           <RotateCcw className="h-4 w-4" />

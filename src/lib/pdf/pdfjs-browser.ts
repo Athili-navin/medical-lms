@@ -56,10 +56,34 @@ export function closeBrowserPdfDocument(doc: BrowserPdfDocument | null) {
   }
 }
 
+function drawPdfWatermark(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  text: string
+) {
+  context.save();
+  context.globalAlpha = 0.2;
+  context.fillStyle = "#111827";
+  context.font = "600 20px system-ui, -apple-system, sans-serif";
+  const stepX = 260;
+  const stepY = 110;
+  context.translate(width / 2, height / 2);
+  context.rotate(-Math.PI / 6);
+  context.translate(-width / 2, -height / 2);
+  for (let y = -height; y < height * 2; y += stepY) {
+    for (let x = -width; x < width * 2; x += stepX) {
+      context.fillText(text, x, y);
+    }
+  }
+  context.restore();
+}
+
 export async function renderBrowserPdfPage(
   doc: BrowserPdfDocument,
   pageNumber: number,
-  scale = 1.75
+  scale = 1.75,
+  watermarkText?: string
 ) {
   const page = await doc.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
@@ -75,6 +99,10 @@ export async function renderBrowserPdfPage(
     canvas,
     background: "rgb(255, 255, 255)",
   }).promise;
+
+  if (watermarkText) {
+    drawPdfWatermark(context, canvas.width, canvas.height, watermarkText);
+  }
 
   page.cleanup();
 

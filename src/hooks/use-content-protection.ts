@@ -1,8 +1,9 @@
 "use client";
 
-import { type RefObject, useEffect, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 const BLOCKED_KEYS = new Set(["c", "s", "p", "a", "u"]);
+const FOCUS_POLL_MS = 200;
 
 function shouldBlockShortcut(event: KeyboardEvent) {
   const key = event.key.toLowerCase();
@@ -10,6 +11,10 @@ function shouldBlockShortcut(event: KeyboardEvent) {
   if (!withMod) return false;
   if (event.shiftKey && (key === "i" || key === "j" || key === "c")) return true;
   return BLOCKED_KEYS.has(key);
+}
+
+function isCaptureRiskState() {
+  return document.hidden || !document.hasFocus();
 }
 
 /** Block copy/print shortcuts while protected content is open. */
@@ -24,6 +29,10 @@ export function useContentProtection(
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (shouldBlockShortcut(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (event.key === "PrintScreen") {
         event.preventDefault();
         event.stopPropagation();
       }
@@ -75,32 +84,49 @@ export function useContentProtection(
   }, [active, containerRef]);
 }
 
-/** Blur protected content when tab/window loses focus (helps deter screenshots). */
+/**
+ * Hide protected pixels when the tab/app loses focus.
+ * CSS blur alone does not stop OS screenshots — content must be removed from the DOM.
+ */
 export function useVisibilityProtection(active: boolean) {
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState<string | null>(null);
+  const blockedRef = useRef(false);
 
   useEffect(() => {
     if (!active) {
+      blockedRef.current = false;
       setIsBlocked(false);
       setBlockReason(null);
       return;
     }
 
     const block = (reason: string) => {
+      blockedRef.current = true;
       setIsBlocked(true);
       setBlockReason(reason);
     };
 
     const unblock = () => {
+      blockedRef.current = false;
       setIsBlocked(false);
       setBlockReason(null);
+    };
+
+    const syncCaptureRisk = () => {
+      if (isCaptureRiskState()) {
+        if (!blockedRef.current) {
+          block("Return to ENAMEL ROADS to continue viewing protected content.");
+        }
+      } else if (blockedRef.current) {
+        unblock();
+      }
     };
 
     const onVisibilityChange = () => {
       if (document.hidden) {
         block("Return to this tab to continue viewing protected content.");
-      } else {
+      } else if (document.hasFocus()) {
         unblock();
       }
     };
@@ -113,23 +139,36 @@ export function useVisibilityProtection(active: boolean) {
       if (!document.hidden) unblock();
     };
 
-    const onKeyUp = (event: KeyboardEvent) => {
+    const onPageHide = () => {
+      block("Protected content hidden while you are away.");
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "PrintScreen") {
         event.preventDefault();
         block("Screenshots are disabled for protected PDF notes.");
+        window.setTimeout(() => {
+          if (!isCaptureRiskState()) unblock();
+        }, 2500);
       }
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("blur", onWindowBlur);
     window.addEventListener("focus", onWindowFocus);
-    document.addEventListener("keyup", onKeyUp, true);
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("keydown", onKeyDown, true);
+
+    const poll = window.setInterval(syncCaptureRisk, FOCUS_POLL_MS);
+    syncCaptureRisk();
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("blur", onWindowBlur);
       window.removeEventListener("focus", onWindowFocus);
-      document.removeEventListener("keyup", onKeyUp, true);
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("keydown", onKeyDown, true);
+      window.clearInterval(poll);
     };
   }, [active]);
 
