@@ -9,9 +9,13 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Include pdfjs assets in serverless functions (PDF page rendering)
+# Include pdfjs + canvas native assets in serverless functions (PDF page rendering)
 [functions]
-  included_files = ["node_modules/pdfjs-dist/**"]
+  included_files = [
+    "node_modules/pdfjs-dist/**",
+    "node_modules/@napi-rs/canvas/**",
+    "node_modules/@napi-rs/canvas-linux-x64-gnu/**",
+  ]
 
 # Optional: force HTTPS
 [[headers]]

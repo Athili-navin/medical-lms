@@ -10,21 +10,31 @@ function moduleDir() {
 
 /** Locate traced pdfjs-dist on disk (Netlify bundles it without npm resolution). */
 export function getPdfJsPackageRoot() {
+  const searchRoots = new Set<string>();
   let dir = moduleDir();
 
-  for (let depth = 0; depth < 12; depth++) {
-    const candidate = path.join(dir, PDFJS_DIR);
-    if (fs.existsSync(path.join(candidate, "package.json"))) {
-      return candidate;
-    }
+  for (let depth = 0; depth < 16; depth++) {
+    searchRoots.add(dir);
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
 
-  const fromCwd = path.join(process.cwd(), PDFJS_DIR);
-  if (fs.existsSync(path.join(fromCwd, "package.json"))) {
-    return fromCwd;
+  searchRoots.add(process.cwd());
+
+  const relativeCandidates = [
+    PDFJS_DIR,
+    path.join(".next", "server", "node_modules", "pdfjs-dist"),
+    path.join("node_modules", ".pnpm", "node_modules", "pdfjs-dist"),
+  ];
+
+  for (const root of searchRoots) {
+    for (const rel of relativeCandidates) {
+      const candidate = path.join(root, rel);
+      if (fs.existsSync(path.join(candidate, "package.json"))) {
+        return candidate;
+      }
+    }
   }
 
   throw new Error("pdfjs-dist not found in server bundle");

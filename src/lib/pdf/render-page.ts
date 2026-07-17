@@ -1,20 +1,11 @@
 import path from "path";
+import { createCanvas } from "@napi-rs/canvas";
 import "@/lib/pdf/node-polyfills";
 import { getPdfJs } from "@/lib/pdf/pdfjs-runtime";
-import { getPdfJsPackageRoot } from "@/lib/pdf/pdfjs-paths";
+import { getPdfJsAssetPath, getPdfJsPackageRoot } from "@/lib/pdf/pdfjs-paths";
 
 type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 type PdfDocument = Awaited<ReturnType<PdfJsModule["getDocument"]>["promise"]>;
-
-type CanvasFactory = {
-  create: (
-    w: number,
-    h: number
-  ) => {
-    canvas: { toBuffer: (mime: string, quality?: number) => Buffer };
-    context: CanvasRenderingContext2D;
-  };
-};
 
 const bytesCache = new Map<string, { bytes: Uint8Array; expires: number }>();
 const docCache = new Map<string, { doc: PdfDocument; expires: number }>();
@@ -25,6 +16,12 @@ const RENDER_SCALE = 2;
 function toFactoryUrl(...segments: string[]) {
   const dir = path.join(getPdfJsPackageRoot(), ...segments);
   return `${dir.replace(/\\/g, "/")}/`;
+}
+
+function assertPdfJsRenderAssets() {
+  getPdfJsAssetPath("standard_fonts", "LiberationSans-Regular.ttf");
+  getPdfJsAssetPath("cmaps", "Roman.bcmap");
+  getPdfJsAssetPath("wasm", "openjpeg.wasm");
 }
 
 function cloneBytes(bytes: Uint8Array) {
@@ -64,15 +61,18 @@ async function loadDocument(bytes: Uint8Array, cacheKey?: string) {
   }
 
   const pdfjs = await getPdfJs();
+  assertPdfJsRenderAssets();
+
   const doc = await pdfjs
     .getDocument({
       data: cloneBytes(bytes),
-      useSystemFonts: true,
       disableFontFace: true,
+      useSystemFonts: false,
       useWorkerFetch: false,
       cMapUrl: toFactoryUrl("cmaps"),
       cMapPacked: true,
       standardFontDataUrl: toFactoryUrl("standard_fonts"),
+      wasmUrl: toFactoryUrl("wasm"),
     })
     .promise;
 
@@ -91,22 +91,19 @@ export async function getPdfPageCount(bytes: Uint8Array, cacheKey?: string) {
 export async function renderPdfPageFromDoc(doc: PdfDocument, pageNumber: number, scale = RENDER_SCALE) {
   const page = await doc.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
-  const canvasFactory = (doc as PdfDocument & { canvasFactory?: CanvasFactory }).canvasFactory;
-  if (!canvasFactory) {
-    throw new Error("PDF canvas factory unavailable");
-  }
-
-  const canvasAndContext = canvasFactory.create(viewport.width, viewport.height);
+  const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+  const context = canvas.getContext("2d");
 
   await page.render({
-    canvasContext: canvasAndContext.context,
+    canvasContext: context as unknown as CanvasRenderingContext2D,
     viewport,
-    canvas: canvasAndContext.canvas as unknown as HTMLCanvasElement,
+    canvas: canvas as unknown as HTMLCanvasElement,
+    background: "rgb(255, 255, 255)",
   }).promise;
 
   page.cleanup();
 
-  return canvasAndContext.canvas.toBuffer("image/jpeg", 92);
+  return canvas.toBuffer("image/jpeg", 92);
 }
 
 export async function renderPdfPageToJpeg(
