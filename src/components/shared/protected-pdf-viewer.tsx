@@ -5,6 +5,12 @@ import { ChevronLeft, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useContentProtection, useVisibilityProtection } from "@/hooks/use-content-protection";
 import { PdfWatermarkOverlay } from "@/components/shared/pdf-watermark-overlay";
+import {
+  closeBrowserPdfDocument,
+  openBrowserPdfDocument,
+  renderBrowserPdfPage,
+  type BrowserPdfDocument,
+} from "@/lib/pdf/pdfjs-browser";
 import { useAuthStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
@@ -14,14 +20,14 @@ interface ProtectedPdfViewerProps {
   className?: string;
 }
 
-const PAGE_FETCH_TIMEOUT_MS = 120_000;
+const LOAD_TIMEOUT_MS = 120_000;
 
 function ProtectedPageImage({
-  chapterId,
+  doc,
   page,
   viewerLabel,
 }: {
-  chapterId: string;
+  doc: BrowserPdfDocument;
   page: number;
   viewerLabel?: string;
 }) {
@@ -32,24 +38,12 @@ function ProtectedPageImage({
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), PAGE_FETCH_TIMEOUT_MS);
 
     setLoading(true);
     setError("");
     setSrc(null);
 
-    fetch(
-      `/api/pdfs/page?chapterId=${encodeURIComponent(chapterId)}&page=${page}`,
-      { credentials: "include", cache: "no-store", signal: controller.signal }
-    )
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: res.statusText }));
-          throw new Error(err.error || "Failed to load page");
-        }
-        return res.blob();
-      })
+    renderBrowserPdfPage(doc, page)
       .then((blob) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
@@ -58,22 +52,15 @@ function ProtectedPageImage({
       })
       .catch((e) => {
         if (cancelled) return;
-        if (e instanceof Error && e.name === "AbortError") {
-          setError("Page took too long to load. Try again or use Next page.");
-        } else {
-          setError(e instanceof Error ? e.message : "Failed to load page");
-        }
+        setError(e instanceof Error ? e.message : "Failed to load page");
         setLoading(false);
-      })
-      .finally(() => window.clearTimeout(timeout));
+      });
 
     return () => {
       cancelled = true;
-      controller.abort();
-      window.clearTimeout(timeout);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [chapterId, page]);
+  }, [doc, page]);
 
   if (loading) {
     return (
@@ -113,8 +100,10 @@ function ProtectedPageImage({
 export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pdfDocRef = useRef<BrowserPdfDocument | null>(null);
   const user = useAuthStore((s) => s.user);
   const viewerLabel = user?.email ?? user?.name;
+  const [pdfDoc, setPdfDoc] = useState<BrowserPdfDocument | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -126,14 +115,17 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), PAGE_FETCH_TIMEOUT_MS);
+    const timeout = window.setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
 
     setLoading(true);
     setError("");
     setCurrentPage(1);
     setPageCount(0);
+    setPdfDoc(null);
+    closeBrowserPdfDocument(pdfDocRef.current);
+    pdfDocRef.current = null;
 
-    fetch(`/api/pdfs/info?chapterId=${encodeURIComponent(chapterId)}`, {
+    fetch(`/api/pdfs/document?chapterId=${encodeURIComponent(chapterId)}`, {
       credentials: "include",
       cache: "no-store",
       signal: controller.signal,
@@ -143,10 +135,17 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
           const err = await res.json().catch(() => ({ error: res.statusText }));
           throw new Error(err.error || "Failed to load PDF");
         }
-        return res.json() as Promise<{ pageCount: number }>;
+        return res.arrayBuffer();
       })
-      .then((data) => {
-        if (!cancelled) setPageCount(data.pageCount);
+      .then(async (buffer) => {
+        const doc = await openBrowserPdfDocument(buffer);
+        if (cancelled) {
+          closeBrowserPdfDocument(doc);
+          return;
+        }
+        pdfDocRef.current = doc;
+        setPdfDoc(doc);
+        setPageCount(doc.numPages);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -165,6 +164,8 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
       cancelled = true;
       controller.abort();
       window.clearTimeout(timeout);
+      closeBrowserPdfDocument(pdfDocRef.current);
+      pdfDocRef.current = null;
     };
   }, [chapterId]);
 
@@ -206,7 +207,7 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
         </div>
       )}
 
-      {!loading && !error && pageCount > 0 && (
+      {!loading && !error && pdfDoc && pageCount > 0 && (
         <>
           <div className="flex shrink-0 items-center justify-between border-b bg-background px-4 py-2">
             <Button type="button" size="sm" variant="outline" onClick={goPrev} disabled={currentPage <= 1}>
@@ -238,7 +239,7 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
             <div className={cn("transition-all duration-300", isBlocked && "blur-xl brightness-75")}>
               <ProtectedPageImage
                 key={`${chapterId}-${currentPage}`}
-                chapterId={chapterId}
+                doc={pdfDoc}
                 page={currentPage}
                 viewerLabel={viewerLabel}
               />
