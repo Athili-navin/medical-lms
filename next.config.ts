@@ -8,7 +8,12 @@ const CANVAS_TRACE_PATHS = [
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist", "razorpay"],
+  serverExternalPackages: [
+    "@napi-rs/canvas",
+    "@opentelemetry/api",
+    "pdfjs-dist",
+    "razorpay",
+  ],
   outputFileTracingIncludes: {
     "/api/pdfs/page": [...PDFJS_TRACE_PATHS, ...CANVAS_TRACE_PATHS],
     "/api/pdfs/info": [...PDFJS_TRACE_PATHS, ...CANVAS_TRACE_PATHS],
