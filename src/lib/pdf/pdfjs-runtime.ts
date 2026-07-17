@@ -1,6 +1,6 @@
-import { createRequire } from "module";
 import { pathToFileURL } from "url";
 import "@/lib/pdf/node-polyfills";
+import { getPdfJsAssetPath } from "@/lib/pdf/pdfjs-paths";
 
 type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 type PdfWorkerModule = typeof import("pdfjs-dist/legacy/build/pdf.worker.mjs");
@@ -18,25 +18,25 @@ const runtimeImport = new Function(
   "return import(specifier)"
 ) as <T>(specifier: string) => Promise<T>;
 
-function resolvePdfJsModule(...segments: string[]) {
-  const nodeRequire = createRequire(import.meta.url);
-  return nodeRequire.resolve(["pdfjs-dist", ...segments].join("/"));
-}
-
 export async function getPdfJs(): Promise<PdfJsModule> {
   if (pdfjsLib) return pdfjsLib;
   if (pdfjsInit) return pdfjsInit;
 
   pdfjsInit = (async () => {
+    const workerPath = getPdfJsAssetPath("legacy", "build", "pdf.worker.mjs");
+
     if (!globalThis.pdfjsWorker?.WorkerMessageHandler) {
-      const workerPath = resolvePdfJsModule("legacy", "build", "pdf.worker.mjs");
       globalThis.pdfjsWorker = await runtimeImport<PdfWorkerModule>(
         pathToFileURL(workerPath).href
       );
     }
 
-    const pdfPath = resolvePdfJsModule("legacy", "build", "pdf.mjs");
+    const pdfPath = getPdfJsAssetPath("legacy", "build", "pdf.mjs");
     pdfjsLib = await runtimeImport<PdfJsModule>(pathToFileURL(pdfPath).href);
+
+    // Prevent pdf.js from dynamic-importing a webpack module id as workerSrc.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+
     return pdfjsLib;
   })();
 
