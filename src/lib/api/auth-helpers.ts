@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { normalizeSubscriptionPlan } from "@/lib/subscription/access";
+import {
+  isActiveSessionValid,
+  readActiveSessionCookie,
+} from "@/lib/auth/active-session";
 import type { User, UserRole } from "@/types";
 
 export interface DbProfile {
@@ -13,6 +17,7 @@ export interface DbProfile {
   subscription_plan?: string;
   subscription_expiry?: string;
   subscription_exempt?: boolean;
+  active_session_id?: string | null;
   joined_at: string;
 }
 
@@ -46,7 +51,12 @@ export function mapProfile(profile: DbProfile): User {
   };
 }
 
-export async function requireAuth(role?: UserRole) {
+export async function isProfileSessionValid(profile: DbProfile) {
+  const cookieSessionId = await readActiveSessionCookie();
+  return isActiveSessionValid(profile.active_session_id, cookieSessionId);
+}
+
+export async function requireAuth(role?: UserRole, options?: { requireActiveSession?: boolean }) {
   if (!isSupabaseConfigured()) {
     return { error: apiError("Backend not configured", 503) };
   }
@@ -59,6 +69,15 @@ export async function requireAuth(role?: UserRole) {
 
   if (role && profile.role !== role) {
     return { error: apiError("Forbidden", 403) };
+  }
+
+  if (options?.requireActiveSession && !(await isProfileSessionValid(profile))) {
+    return {
+      error: apiError(
+        "Your account was signed in on another device. Please log in again.",
+        401
+      ),
+    };
   }
 
   return { supabase, user, profile, profileUser: mapProfile(profile) };

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -26,6 +26,8 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionNotice = searchParams.get("reason");
   const setUser = useAuthStore((s) => s.setUser);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -68,6 +70,11 @@ export function LoginForm() {
             </CardHeader>
             <form onSubmit={handleSubmit(onSubmit)}>
               <CardContent className="space-y-4">
+                {sessionNotice && (
+                  <p className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+                    {sessionNotice}
+                  </p>
+                )}
                 {error && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>

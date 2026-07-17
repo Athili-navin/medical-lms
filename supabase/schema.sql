@@ -11,6 +11,7 @@ create table if not exists public.profiles (
   subscription_plan text default 'none',
   subscription_expiry timestamptz,
   subscription_exempt boolean not null default false,
+  active_session_id uuid,
   joined_at timestamptz default now()
 );
 

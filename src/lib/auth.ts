@@ -28,6 +28,17 @@ export async function signIn(email: string, password: string, expectedRole?: Use
     };
   }
 
+  try {
+    const { registerActiveSessionClient } = await import("@/lib/auth/register-session-client");
+    await registerActiveSessionClient();
+  } catch (e) {
+    await supabase.auth.signOut();
+    return {
+      user: null,
+      error: e instanceof Error ? e.message : "Could not start secure session",
+    };
+  }
+
   return {
     user: {
       id: profile.id,

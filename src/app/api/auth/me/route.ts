@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, mapProfile } from "@/lib/api/auth-helpers";
+import { getSession, isProfileSessionValid, mapProfile } from "@/lib/api/auth-helpers";
 import { requireBackend } from "@/lib/api/route-utils";
 
 export async function GET() {
@@ -8,7 +8,9 @@ export async function GET() {
 
   const { user, profile } = await getSession();
   if (user && profile) {
-    return NextResponse.json({ user: mapProfile(profile) });
+    const sessionValid = await isProfileSessionValid(profile);
+    const needsSessionRegistration = !profile.active_session_id;
+    return NextResponse.json({ user: mapProfile(profile), sessionValid, needsSessionRegistration });
   }
-  return NextResponse.json({ user: null });
+  return NextResponse.json({ user: null, sessionValid: false, needsSessionRegistration: false });
 }

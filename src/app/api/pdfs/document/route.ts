@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const backendError = requireBackend();
   if (backendError) return backendError;
 
-  const auth = await requireAuth();
+  const auth = await requireAuth(undefined, { requireActiveSession: true });
   if ("error" in auth && auth.error) return auth.error;
   const subError = gateStudentSubscription(auth.profile);
   if (subError) return subError;

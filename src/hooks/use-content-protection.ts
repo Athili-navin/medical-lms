@@ -49,6 +49,11 @@ export function useContentProtection(
       event.preventDefault();
     };
 
+    const onTouchStart = (event: Event) => {
+      const touchEvent = event as TouchEvent;
+      if (touchEvent.touches.length > 1) touchEvent.preventDefault();
+    };
+
     document.addEventListener("keydown", onKeyDown, true);
     const copyTarget = container ?? document;
     copyTarget.addEventListener("copy", onCopy as EventListener, true);
@@ -56,6 +61,7 @@ export function useContentProtection(
     copyTarget.addEventListener("dragstart", onDragStart as EventListener, true);
     copyTarget.addEventListener("selectstart", onSelectStart, true);
     copyTarget.addEventListener("contextmenu", onContextMenu, true);
+    copyTarget.addEventListener("touchstart", onTouchStart, { capture: true, passive: false });
 
     return () => {
       document.removeEventListener("keydown", onKeyDown, true);
@@ -64,11 +70,12 @@ export function useContentProtection(
       copyTarget.removeEventListener("dragstart", onDragStart as EventListener, true);
       copyTarget.removeEventListener("selectstart", onSelectStart, true);
       copyTarget.removeEventListener("contextmenu", onContextMenu, true);
+      copyTarget.removeEventListener("touchstart", onTouchStart, true);
     };
   }, [active, containerRef]);
 }
 
-/** Video player overlay when tab loses focus — separate from PDF modal protection. */
+/** Blur protected content when tab/window loses focus (helps deter screenshots). */
 export function useVisibilityProtection(active: boolean) {
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockReason, setBlockReason] = useState<string | null>(null);
@@ -80,18 +87,50 @@ export function useVisibilityProtection(active: boolean) {
       return;
     }
 
+    const block = (reason: string) => {
+      setIsBlocked(true);
+      setBlockReason(reason);
+    };
+
+    const unblock = () => {
+      setIsBlocked(false);
+      setBlockReason(null);
+    };
+
     const onVisibilityChange = () => {
       if (document.hidden) {
-        setIsBlocked(true);
-        setBlockReason("Return to this tab to continue viewing protected content.");
+        block("Return to this tab to continue viewing protected content.");
       } else {
-        setIsBlocked(false);
-        setBlockReason(null);
+        unblock();
+      }
+    };
+
+    const onWindowBlur = () => {
+      block("Return to ENAMEL ROADS to continue viewing protected content.");
+    };
+
+    const onWindowFocus = () => {
+      if (!document.hidden) unblock();
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "PrintScreen") {
+        event.preventDefault();
+        block("Screenshots are disabled for protected PDF notes.");
       }
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("blur", onWindowBlur);
+    window.addEventListener("focus", onWindowFocus);
+    document.addEventListener("keyup", onKeyUp, true);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("blur", onWindowBlur);
+      window.removeEventListener("focus", onWindowFocus);
+      document.removeEventListener("keyup", onKeyUp, true);
+    };
   }, [active]);
 
   return { isBlocked, blockReason };

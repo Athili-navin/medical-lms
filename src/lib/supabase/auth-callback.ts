@@ -1,5 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  registerActiveSessionForUser,
+  setActiveSessionCookie,
+} from "@/lib/auth/active-session";
 
 function safeNextPath(next: string | null) {
   if (!next || !next.startsWith("/") || next.startsWith("//")) {
@@ -68,6 +72,19 @@ export async function handleAuthCallback(request: NextRequest) {
       return NextResponse.redirect(
         `${origin}/reset-password?error=${encodeURIComponent(error.message)}`
       );
+    }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user && next !== "/reset-password") {
+    try {
+      const sessionId = await registerActiveSessionForUser(supabase, user.id);
+      setActiveSessionCookie(response, sessionId);
+    } catch {
+      // Allow password recovery flows even if session registration fails
     }
   }
 

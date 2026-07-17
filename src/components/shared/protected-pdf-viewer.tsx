@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useContentProtection, useVisibilityProtection } from "@/hooks/use-content-protection";
 import { PdfWatermarkOverlay } from "@/components/shared/pdf-watermark-overlay";
+import { PdfPinchZoom } from "@/components/shared/pdf-pinch-zoom";
 import {
   closeBrowserPdfDocument,
   openBrowserPdfDocument,
@@ -82,14 +83,14 @@ function ProtectedPageImage({
   }
 
   return (
-    <div className="relative mx-auto max-w-full">
+    <div className="relative mx-auto max-w-full [touch-callout:none]">
       <PdfWatermarkOverlay viewerLabel={viewerLabel} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src ?? undefined}
         alt={`Page ${page}`}
         draggable={false}
-        className="mx-auto block h-auto w-full max-w-full select-none rounded-md bg-white shadow-sm"
+        className="pointer-events-none mx-auto block h-auto w-full max-w-full select-none rounded-md bg-white shadow-sm"
         onContextMenu={(e) => e.preventDefault()}
         onDragStart={(e) => e.preventDefault()}
       />
@@ -189,7 +190,14 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
       )}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <style>{`@media print { .protected-pdf, .protected-pdf * { display: none !important; } }`}</style>
+      <style>{`
+        @media print { .protected-pdf, .protected-pdf * { display: none !important; } }
+        .protected-pdf img {
+          -webkit-touch-callout: none;
+          -webkit-user-drag: none;
+          user-select: none;
+        }
+      `}</style>
 
       {loading && (
         <div className="flex flex-1 items-center justify-center py-16">
@@ -232,17 +240,19 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
           <div
             ref={scrollRef}
             className={cn(
-              "relative h-0 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain touch-pan-y p-4",
+              "relative flex min-h-0 flex-1 flex-col overflow-hidden",
               isBlocked && "overflow-hidden"
             )}
           >
-            <div className={cn("transition-all duration-300", isBlocked && "blur-xl brightness-75")}>
-              <ProtectedPageImage
-                key={`${chapterId}-${currentPage}`}
-                doc={pdfDoc}
-                page={currentPage}
-                viewerLabel={viewerLabel}
-              />
+            <div className={cn("flex min-h-0 flex-1 flex-col transition-all duration-300", isBlocked && "blur-xl brightness-75")}>
+              <PdfPinchZoom resetKey={`${chapterId}-${currentPage}`} className="min-h-0 flex-1">
+                <ProtectedPageImage
+                  key={`${chapterId}-${currentPage}`}
+                  doc={pdfDoc}
+                  page={currentPage}
+                  viewerLabel={viewerLabel}
+                />
+              </PdfPinchZoom>
             </div>
 
             {isBlocked && (
@@ -259,7 +269,7 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
       )}
 
       <p className="shrink-0 border-t px-4 py-2 text-xs text-muted-foreground">
-        Secure view — copy and download blocked. Watermarked with ENAMEL ROADS.
+        Secure view — pinch or use +/- to zoom on mobile. Copy, download, and screenshots are restricted.
       </p>
     </div>
   );
