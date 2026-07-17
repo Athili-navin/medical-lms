@@ -1,7 +1,20 @@
 import type { NextConfig } from "next";
 
+const PDFJS_TRACE_PATHS = [
+  "./node_modules/pdfjs-dist/package.json",
+  "./node_modules/pdfjs-dist/legacy/build/pdf.mjs",
+  "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+  "./node_modules/pdfjs-dist/cmaps/**",
+  "./node_modules/pdfjs-dist/standard_fonts/**",
+];
+
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist", "razorpay"],
+  // Netlify serverless: include pdfjs worker + font assets in function bundle
+  outputFileTracingIncludes: {
+    "/api/pdfs/page": PDFJS_TRACE_PATHS,
+    "/api/pdfs/info": PDFJS_TRACE_PATHS,
+  },
   experimental: {
     optimizePackageImports: ["lucide-react", "@radix-ui/react-icons"],
   },

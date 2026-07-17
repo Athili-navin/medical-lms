@@ -1,8 +1,11 @@
 import path from "path";
 import { pathToFileURL } from "url";
 import "@/lib/pdf/node-polyfills";
+import { getPdfJsPackageRoot } from "@/lib/pdf/pdfjs-paths";
+
 type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
 type PdfDocument = Awaited<ReturnType<PdfJsModule["getDocument"]>["promise"]>;
+type PdfWorkerModule = typeof import("pdfjs-dist/legacy/build/pdf.worker.mjs");
 
 type CanvasFactory = {
   create: (
@@ -14,6 +17,10 @@ type CanvasFactory = {
   };
 };
 
+declare global {
+  var pdfjsWorker: PdfWorkerModule | undefined;
+}
+
 let pdfjsLib: PdfJsModule | null = null;
 let pdfjsInit: Promise<PdfJsModule> | null = null;
 
@@ -23,10 +30,39 @@ const chapterQueues = new Map<string, Promise<unknown>>();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const RENDER_SCALE = 2;
 
-const pdfAssetRoot = path.join(process.cwd(), "node_modules", "pdfjs-dist");
+function getPdfAssetRoot() {
+  return getPdfJsPackageRoot();
+}
 
 function toFactoryUrl(...segments: string[]) {
-  return `${path.join(pdfAssetRoot, ...segments).replace(/\\/g, "/")}/`;
+  return `${path.join(getPdfAssetRoot(), ...segments).replace(/\\/g, "/")}/`;
+}
+
+async function ensurePdfWorkerHandler() {
+  if (globalThis.pdfjsWorker?.WorkerMessageHandler) return;
+
+  const workerRelPath = path.join("legacy", "build", "pdf.worker.mjs");
+  const loaders = [
+    () => import("pdfjs-dist/legacy/build/pdf.worker.mjs") as Promise<PdfWorkerModule>,
+    () =>
+      import(pathToFileURL(path.join(getPdfAssetRoot(), workerRelPath)).href) as Promise<PdfWorkerModule>,
+  ];
+
+  let lastError: unknown;
+  for (const load of loaders) {
+    try {
+      globalThis.pdfjsWorker = await load();
+      if (globalThis.pdfjsWorker?.WorkerMessageHandler) return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(
+    lastError instanceof Error
+      ? `PDF worker unavailable: ${lastError.message}`
+      : "PDF worker unavailable"
+  );
 }
 
 async function getPdfJs() {
@@ -34,11 +70,11 @@ async function getPdfJs() {
   if (pdfjsInit) return pdfjsInit;
 
   pdfjsInit = (async () => {
+    await ensurePdfWorkerHandler();
     pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const workerPath = path.join(pdfAssetRoot, "legacy", "build", "pdf.worker.mjs");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
     return pdfjsLib;
   })();
+
   return pdfjsInit;
 }
 
