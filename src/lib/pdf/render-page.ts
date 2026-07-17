@@ -1,9 +1,10 @@
 import path from "path";
 import "@/lib/pdf/node-polyfills";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getPdfJs } from "@/lib/pdf/pdfjs-runtime";
 import { getPdfJsPackageRoot } from "@/lib/pdf/pdfjs-paths";
 
-type PdfDocument = Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>;
+type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
+type PdfDocument = Awaited<ReturnType<PdfJsModule["getDocument"]>["promise"]>;
 
 type CanvasFactory = {
   create: (
@@ -62,7 +63,8 @@ async function loadDocument(bytes: Uint8Array, cacheKey?: string) {
     }
   }
 
-  const doc = await pdfjsLib
+  const pdfjs = await getPdfJs();
+  const doc = await pdfjs
     .getDocument({
       data: cloneBytes(bytes),
       useSystemFonts: true,
