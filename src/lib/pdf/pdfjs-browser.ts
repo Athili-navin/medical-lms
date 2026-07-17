@@ -1,14 +1,17 @@
-/** Browser-only PDF.js helpers — loaded from CDN to avoid Netlify/server bundling issues. */
+/** Browser-only PDF.js helpers — assets served from /public/pdfjs (see scripts/copy-pdfjs.mjs). */
 
-const PDFJS_VERSION = "6.1.200";
-const PDFJS_CDN = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}`;
+const PDFJS_CDN = "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.1.200";
 
 type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
-export type BrowserPdfDocument = Awaited<ReturnType<PdfJsModule["getDocument"]>["promise"]> & {
-  destroy(): Promise<void>;
-};
+
+export type BrowserPdfDocument = Awaited<ReturnType<PdfJsModule["getDocument"]>["promise"]>;
 
 let pdfjsPromise: Promise<PdfJsModule> | null = null;
+
+function pdfJsBaseUrl() {
+  if (typeof window === "undefined") return "/pdfjs";
+  return `${window.location.origin}/pdfjs`;
+}
 
 const runtimeImport = new Function(
   "specifier",
@@ -18,8 +21,9 @@ const runtimeImport = new Function(
 export function loadBrowserPdfJs() {
   if (!pdfjsPromise) {
     pdfjsPromise = (async () => {
-      const pdfjs = await runtimeImport<PdfJsModule>(`${PDFJS_CDN}/legacy/build/pdf.min.mjs`);
-      pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/legacy/build/pdf.worker.min.mjs`;
+      const base = pdfJsBaseUrl();
+      const pdfjs = await runtimeImport<PdfJsModule>(`${base}/legacy/build/pdf.min.mjs`);
+      pdfjs.GlobalWorkerOptions.workerSrc = `${base}/legacy/build/pdf.worker.min.mjs`;
       return pdfjs;
     })();
   }
@@ -28,16 +32,28 @@ export function loadBrowserPdfJs() {
 
 export async function openBrowserPdfDocument(data: ArrayBuffer): Promise<BrowserPdfDocument> {
   const pdfjs = await loadBrowserPdfJs();
+  const base = pdfJsBaseUrl();
   return pdfjs.getDocument({
     data: new Uint8Array(data),
     cMapUrl: `${PDFJS_CDN}/cmaps/`,
     cMapPacked: true,
-    standardFontDataUrl: `${PDFJS_CDN}/standard_fonts/`,
-  }).promise as Promise<BrowserPdfDocument>;
+    standardFontDataUrl: `${base}/standard_fonts/`,
+  }).promise;
 }
 
 export function closeBrowserPdfDocument(doc: BrowserPdfDocument | null) {
-  if (doc) void doc.destroy();
+  if (!doc) return;
+  try {
+    if (typeof doc.cleanup === "function") void doc.cleanup();
+  } catch {
+    // ignore teardown errors
+  }
+  try {
+    const task = doc.loadingTask as { destroy?: () => Promise<void> } | undefined;
+    if (task && typeof task.destroy === "function") void task.destroy();
+  } catch {
+    // ignore teardown errors
+  }
 }
 
 export async function renderBrowserPdfPage(
