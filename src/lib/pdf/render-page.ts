@@ -1,10 +1,9 @@
 import path from "path";
-import * as pdfWorkerModule from "pdfjs-dist/legacy/build/pdf.worker.mjs";
 import "@/lib/pdf/node-polyfills";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { getPdfJsPackageRoot } from "@/lib/pdf/pdfjs-paths";
 
-type PdfJsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
-type PdfDocument = Awaited<ReturnType<PdfJsModule["getDocument"]>["promise"]>;
+type PdfDocument = Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>;
 
 type CanvasFactory = {
   create: (
@@ -16,16 +15,6 @@ type CanvasFactory = {
   };
 };
 
-declare global {
-  var pdfjsWorker: typeof pdfWorkerModule | undefined;
-}
-
-// Register worker handler on the main thread (required for pdfjs on Node / Netlify).
-globalThis.pdfjsWorker = pdfWorkerModule;
-
-let pdfjsLib: PdfJsModule | null = null;
-let pdfjsInit: Promise<PdfJsModule> | null = null;
-
 const bytesCache = new Map<string, { bytes: Uint8Array; expires: number }>();
 const docCache = new Map<string, { doc: PdfDocument; expires: number }>();
 const chapterQueues = new Map<string, Promise<unknown>>();
@@ -35,18 +24,6 @@ const RENDER_SCALE = 2;
 function toFactoryUrl(...segments: string[]) {
   const dir = path.join(getPdfJsPackageRoot(), ...segments);
   return `${dir.replace(/\\/g, "/")}/`;
-}
-
-async function getPdfJs() {
-  if (pdfjsLib) return pdfjsLib;
-  if (pdfjsInit) return pdfjsInit;
-
-  pdfjsInit = import("pdfjs-dist/legacy/build/pdf.mjs").then((mod) => {
-    pdfjsLib = mod;
-    return mod;
-  });
-
-  return pdfjsInit;
 }
 
 function cloneBytes(bytes: Uint8Array) {
@@ -85,8 +62,7 @@ async function loadDocument(bytes: Uint8Array, cacheKey?: string) {
     }
   }
 
-  const pdfjs = await getPdfJs();
-  const doc = await pdfjs
+  const doc = await pdfjsLib
     .getDocument({
       data: cloneBytes(bytes),
       useSystemFonts: true,

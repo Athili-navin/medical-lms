@@ -1,7 +1,14 @@
 import { DOMMatrix, Path2D } from "@napi-rs/canvas";
+import * as pdfWorkerModule from "pdfjs-dist/legacy/build/pdf.worker.mjs";
 
-/** Required by pdfjs-dist on Node.js / Netlify before PDF modules load. */
+declare global {
+  var pdfjsWorker: typeof pdfWorkerModule | undefined;
+}
+
+/** Required by pdfjs-dist on Node.js / Netlify before pdf.mjs loads. */
 export function ensurePdfNodePolyfills() {
+  globalThis.pdfjsWorker = pdfWorkerModule;
+
   if (typeof globalThis.DOMMatrix === "undefined") {
     globalThis.DOMMatrix = DOMMatrix as typeof globalThis.DOMMatrix;
   }
