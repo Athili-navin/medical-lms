@@ -94,7 +94,7 @@ export default function TutorChaptersPage() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-2xl font-bold lg:text-3xl">Chapter PDF Notes</h1>
           <p className="text-muted-foreground">
-            Manage chapters and upload PDF notes. Students view in-app only — copy blocked, watermarked.
+            Manage chapters and upload PDF notes. Students view in-app only — copy and download blocked.
           </p>
         </motion.div>
         <Button onClick={openCreate}>

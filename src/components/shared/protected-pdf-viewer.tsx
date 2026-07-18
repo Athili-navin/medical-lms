@@ -11,7 +11,6 @@ import {
   renderBrowserPdfPage,
   type BrowserPdfDocument,
 } from "@/lib/pdf/pdfjs-browser";
-import { useAuthStore } from "@/stores";
 import { cn } from "@/lib/utils";
 
 interface ProtectedPdfViewerProps {
@@ -21,17 +20,14 @@ interface ProtectedPdfViewerProps {
 }
 
 const LOAD_TIMEOUT_MS = 120_000;
-const WATERMARK_BRAND = "ENAMEL ROADS";
 
 function ProtectedPageImage({
   doc,
   page,
-  watermarkText,
   visible,
 }: {
   doc: BrowserPdfDocument;
   page: number;
-  watermarkText: string;
   visible: boolean;
 }) {
   const [src, setSrc] = useState<string | null>(null);
@@ -46,7 +42,7 @@ function ProtectedPageImage({
     setError("");
     setSrc(null);
 
-    renderBrowserPdfPage(doc, page, 1.75, watermarkText)
+    renderBrowserPdfPage(doc, page)
       .then((blob) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(blob);
@@ -63,7 +59,7 @@ function ProtectedPageImage({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [doc, page, watermarkText]);
+  }, [doc, page]);
 
   if (!visible) {
     return (
@@ -126,15 +122,6 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<BrowserPdfDocument | null>(null);
-  const user = useAuthStore((s) => s.user);
-  const viewerLabel = user?.email ?? user?.name;
-  // Timestamp in the watermark makes any screenshot traceable to user + time
-  const [watermarkStamp] = useState(() =>
-    new Date().toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })
-  );
-  const watermarkText = viewerLabel
-    ? `${WATERMARK_BRAND} · ${viewerLabel} · ${watermarkStamp}`
-    : `${WATERMARK_BRAND} · ${watermarkStamp}`;
   const [pdfDoc, setPdfDoc] = useState<BrowserPdfDocument | null>(null);
   const [pageCount, setPageCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -274,7 +261,6 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
                 key={`${chapterId}-${currentPage}`}
                 doc={pdfDoc}
                 page={currentPage}
-                watermarkText={watermarkText}
                 visible={!isBlocked}
               />
             </PdfPinchZoom>
@@ -285,7 +271,7 @@ export function ProtectedPdfViewer({ chapterId, title, className }: ProtectedPdf
       )}
 
       <p className="shrink-0 border-t px-4 py-2 text-xs text-muted-foreground">
-        Secure view — content is hidden when you leave the app. Notes are watermarked with your account.
+        Secure view — content is hidden when you leave the app. Copy and download are blocked.
       </p>
     </div>
   );
