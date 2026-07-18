@@ -167,11 +167,17 @@ export default function TutorChaptersPage() {
               </div>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto]">
-              <div className="space-y-2">
-                <Label>Chapter Title</Label>
-                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-              </div>
+            <div className="space-y-2">
+              <Label>Chapter Title</Label>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder="Enter chapter title"
+                className="text-base"
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Order</Label>
                 <Input
